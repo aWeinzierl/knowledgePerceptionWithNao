@@ -37,7 +37,7 @@ class ImageConverter
     std::unordered_map<unsigned int, std::string> marker_to_class_associations_;
     std::unordered_map<unsigned int, unsigned int> marker_to_instance_id_associations_;
     std::unordered_map<std::string, unsigned int> class_to_current_id_associations_;
-    std::unordered_map<unsigned int, Coordinate> class_to_last_significant_position_;
+    std::unordered_map<unsigned int, Coordinate> marker_to_last_significant_position_;
     Prolog pl;
 
 public:
@@ -151,6 +151,14 @@ public:
             std::to_string(markerId) + ",ObjInst");
     }
 
+    void detectMotions(const std::vector<Marker> &markers){
+        for (const auto & marker: markers){
+            if (marker_to_last_significant_position_.find(marker.id)==marker_to_last_significant_position_.end()){
+                std::cout << "   "
+            }
+        }
+    }
+
     void imageCb(const sensor_msgs::ImageConstPtr &msg)
     {
         cv_bridge::CvImagePtr cv_ptr;
@@ -172,6 +180,7 @@ public:
         clearLinuxConsole();
         drawMarkers(InImage, markers);
         recognizeObjects(markers);
+        detectMotions(markers);
 
         imshow("markers", InImage);
         waitKey(10);

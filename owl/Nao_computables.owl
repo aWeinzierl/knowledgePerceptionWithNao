@@ -33,6 +33,17 @@
  <owl:Class rdf:about="&Nao_computables;Carrot">
         <rdfs:subClassOf rdf:resource="&knowrob;Food"/>
     </owl:Class>
+ <owl:Class rdf:about="&Nao_computables;Donut">
+        <rdfs:subClassOf rdf:resource="&knowrob;Food"/>
+    </owl:Class>
+
+ <owl:Class rdf:about="&Nao_computables;HotWing">
+        <rdfs:subClassOf rdf:resource="&knowrob;Food"/>
+    </owl:Class>
+
+ <owl:Class rdf:about="&Nao_computables;HotWing">
+        <rdfs:subClassOf rdf:resource="&knowrob;Food"/>
+    </owl:Class>
 
 <!-- http://knowrob.org/kb/Nao_computables.owl#MoveForward -->
     <owl:ObjectProperty rdf:about="&Nao_computables;MoveForward">

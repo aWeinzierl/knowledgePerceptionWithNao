@@ -7,94 +7,131 @@
 #include <aruco/aruco.h>
 #include <aruco/cvdrawingutils.h>
 #include <json_prolog/prolog.h>
+#include <unordered_map>
+
 using namespace std;
 using namespace cv;
 using namespace aruco;
 using namespace json_prolog;
 
-class ImageConverter
-{
-	ros::NodeHandle nh_;
-	image_transport::ImageTransport it_;
-	image_transport::Subscriber image_sub_;
-	image_transport::Publisher image_pub_;
-	CameraParameters TheCameraParameters;
-	Prolog pl;
+class ImageConverter {
+    ros::NodeHandle nh_;
+    image_transport::ImageTransport it_;
+    image_transport::Subscriber image_sub_;
+    image_transport::Publisher image_pub_;
+    CameraParameters TheCameraParameters;
+    std::unordered_map<unsigned int, std::string> marker_to_class_associations_;
+    std::unordered_map<unsigned int, unsigned int> marker_to_instance_id_associations_;
+    std::unordered_map<std::string, unsigned int> class_to_current_id_associations;
+    Prolog pl;
 
 public:
-	ImageConverter()
-	: it_(nh_)
-	{
-		// Subscrive to input video feed and publish output video feed
+    ImageConverter()
+            : it_(nh_) {
+        // Subscrive to input video feed and publish output video feed
         image_sub_ = it_.subscribe("/nao_robot/camera/top/camera/image_raw", 1, &ImageConverter::imageCb, this);
 
-		Mat dist(1,5,CV_32FC1);
-		dist.at<float>(0,0)=-0.066494;
-		dist.at<float>(0,1)=0.095481;
-		dist.at<float>(0,2)=-0.000279;
-		dist.at<float>(0,3)=0.002292;
-		dist.at<float>(0,4)=0.000000;
-		Mat cameraP(3,3,CV_32FC1);
+        Mat dist(1, 5, CV_32FC1);
+        dist.at<float>(0, 0) = -0.066494;
+        dist.at<float>(0, 1) = 0.095481;
+        dist.at<float>(0, 2) = -0.000279;
+        dist.at<float>(0, 3) = 0.002292;
+        dist.at<float>(0, 4) = 0.000000;
+        Mat cameraP(3, 3, CV_32FC1);
 
-		cameraP.at<float>(0,0)=551.543059;
-		cameraP.at<float>(0,1)=0.000000;
-		cameraP.at<float>(0,2)=327.382898;
-		cameraP.at<float>(1,0)=0.000000;
-		cameraP.at<float>(1,1)=553.736023;
-		cameraP.at<float>(1,2)=225.026380;
-		cameraP.at<float>(2,0)=0.000000;
-		cameraP.at<float>(2,1)=0.000000;
-		cameraP.at<float>(2,2)=1.000000;
+        cameraP.at<float>(0, 0) = 551.543059;
+        cameraP.at<float>(0, 1) = 0.000000;
+        cameraP.at<float>(0, 2) = 327.382898;
+        cameraP.at<float>(1, 0) = 0.000000;
+        cameraP.at<float>(1, 1) = 553.736023;
+        cameraP.at<float>(1, 2) = 225.026380;
+        cameraP.at<float>(2, 0) = 0.000000;
+        cameraP.at<float>(2, 1) = 0.000000;
+        cameraP.at<float>(2, 2) = 1.000000;
 
-		TheCameraParameters.setParams(cameraP,dist,Size(640,480));
-		TheCameraParameters.resize( Size(640,480));
-	}
+        TheCameraParameters.setParams(cameraP, dist, Size(640, 480));
+        TheCameraParameters.resize(Size(640, 480));
 
-	~ImageConverter()
-	{
-	}
 
-	string IntToStr(int a)
-	{
-		stringstream ss;
-		ss << a;
-		return ss.str();
-	}
+        marker_to_class_associations_= {
+                {457, "Carrot"},
+                {885, "Donut"},
+                {785, "HotWing"},
+                {943, "HotWing"},
+                {251, "HotWing"},
+                {279, "Donut"},
+        };
 
-	void imageCb(const sensor_msgs::ImageConstPtr& msg)
-	{
-		cv_bridge::CvImagePtr cv_ptr;
-		try
-		{
-			cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-		}
-		catch (cv_bridge::Exception& e)
-		{
-			ROS_ERROR("cv_bridge exception: %s", e.what());
-			return;
-		}
+        class_to_current_id_associations = {
+                {"Carrot",0},
+                {"Donut", 0 },
+                {"HotWing", 0},
+        };
+    }
 
-		Mat InImage=cv_ptr->image;
+    ~ImageConverter() {
+    }
+
+    string IntToStr(int a) {
+        stringstream ss;
+        ss << a;
+        return ss.str();
+    }
+
+    void createInstance(unsigned int markerId, const std::string& associatedClass) const {
+
+        Prolog pl;
+        PrologQueryProxy bdgs = pl.query(
+                "rdf_costom_instance_from_class('http://knowrob.org/kb/knowrob.owl#" + associatedClass + "',_," +
+                std::to_string(markerId) + ",ObjInst");
+    }
+
+    void imageCb(const sensor_msgs::ImageConstPtr &msg) {
+        cv_bridge::CvImagePtr cv_ptr;
+        try {
+            cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+        }
+        catch (cv_bridge::Exception &e) {
+            ROS_ERROR("cv_bridge exception: %s", e.what());
+            return;
+        }
+
+        Mat InImage = cv_ptr->image;
 
         MarkerDetector mDetector;
         vector<Marker> markers;
         mDetector.detect(InImage, markers, TheCameraParameters);
 
-        for(auto const& marker : markers){
-            marker.draw(InImage, Scalar(0,0,255), 2);
+        for (auto const &marker : markers) {
+            auto markerId = marker.id;
+            auto instanceIdSearchPtr = marker_to_instance_id_associations_.find(markerId);
+            auto associatedClass = marker_to_class_associations_.find(markerId)->second;
+
+            if (instanceIdSearchPtr==marker_to_instance_id_associations_.end()){
+
+                createInstance(markerId, associatedClass);
+                auto supposedId = class_to_current_id_associations.find(associatedClass)->second + 1;
+                marker_to_instance_id_associations_[markerId]=supposedId;
+                class_to_current_id_associations[associatedClass]=supposedId;
+
+                std::cout << "Found new instance of class '"+ associatedClass +"': '"+ std::to_string(markerId) + "'\n";
+                std::cout << "    Registering new instance with id '"+ std::to_string(supposedId) + "'";
+            } else {
+                auto instanceId = instanceIdSearchPtr->second;
+                std::cout << "Found registered instance of class '" + associatedClass + "': '"+ std::to_string(markerId)+"'\n";
+                std::cout << "    Instance is registered with id '" + std::to_string(marker_to_instance_id_associations_.find(markerId)->second);
+            }
+            marker.draw(InImage, Scalar(0, 0, 255), 2);
         }
-
-
-		imshow("markers",InImage);
-		waitKey(10);
-	}
+        imshow("markers", InImage);
+        waitKey(10);
+    }
 };
 
-int main(int argc, char** argv)
-{
-	ros::init(argc, argv, "tutorial_vision");
-	ImageConverter ic;
+int main(int argc, char **argv) {
+    ros::init(argc, argv, "tutorial_vision");
+    ImageConverter ic;
 
-	ros::spin();
-	return 0;
+    ros::spin();
+    return 0;
 }

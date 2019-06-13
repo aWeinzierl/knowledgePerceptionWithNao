@@ -78,6 +78,10 @@ public:
         return ss.str();
     }
 
+    void clearLinuxConsole(){
+        std::cout << "\033[2J\033[1;1H";
+    }
+
     void createInstance(unsigned int markerId, const std::string& associatedClass) const {
 
         Prolog pl;
@@ -101,11 +105,18 @@ public:
         MarkerDetector mDetector;
         vector<Marker> markers;
         mDetector.detect(InImage, markers, TheCameraParameters);
-
+        clearLinuxConsole();
         for (auto const &marker : markers) {
             auto markerId = marker.id;
+            if (marker_to_class_associations_.find(markerId)==marker_to_class_associations_.end()){
+                std::cout << "Found unkown marker with id " + std::to_string(markerId) + "\n\n";
+                continue;
+            }
+
+
             auto instanceIdSearchPtr = marker_to_instance_id_associations_.find(markerId);
             auto associatedClass = marker_to_class_associations_.find(markerId)->second;
+
 
             if (instanceIdSearchPtr==marker_to_instance_id_associations_.end()){
 
@@ -115,11 +126,11 @@ public:
                 class_to_current_id_associations[associatedClass]=supposedId;
 
                 std::cout << "Found new instance of class '"+ associatedClass +"': '"+ std::to_string(markerId) + "'\n";
-                std::cout << "    Registering new instance with id '"+ std::to_string(supposedId) + "'";
+                std::cout << "    Registering new instance with id '"+ std::to_string(supposedId) + "'\n\n";
             } else {
                 auto instanceId = instanceIdSearchPtr->second;
                 std::cout << "Found registered instance of class '" + associatedClass + "': '"+ std::to_string(markerId)+"'\n";
-                std::cout << "    Instance is registered with id '" + std::to_string(marker_to_instance_id_associations_.find(markerId)->second);
+                std::cout << "    Instance is registered with id '" + std::to_string(marker_to_instance_id_associations_.find(markerId)->second) +"'\n\n";
             }
             marker.draw(InImage, Scalar(0, 0, 255), 2);
         }

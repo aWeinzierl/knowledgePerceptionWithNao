@@ -14,6 +14,18 @@ using namespace cv;
 using namespace aruco;
 using namespace json_prolog;
 
+struct Coordinate{
+    public:
+    Coordinate(double x, double y, double z){}
+
+    double GetX() const noexcept;
+    double GetY() const noexcept;
+    double GetZ() const noexcept;
+
+    private:
+    double _x, _y, _z;
+};
+
 class ImageConverter {
     ros::NodeHandle nh_;
     image_transport::ImageTransport it_;
@@ -22,7 +34,8 @@ class ImageConverter {
     CameraParameters TheCameraParameters;
     std::unordered_map<unsigned int, std::string> marker_to_class_associations_;
     std::unordered_map<unsigned int, unsigned int> marker_to_instance_id_associations_;
-    std::unordered_map<std::string, unsigned int> class_to_current_id_associations;
+    std::unordered_map<std::string, unsigned int> class_to_current_id_associations_;
+    std::unordered_map<unsigned int, Coordinate> class_to_last_significant_position_;
     Prolog pl;
 
 public:
@@ -62,11 +75,13 @@ public:
                 {279, "Donut"},
         };
 
-        class_to_current_id_associations = {
+        class_to_current_id_associations_ = {
                 {"Carrot",0},
                 {"Donut", 0 },
                 {"HotWing", 0},
         };
+
+        
     }
 
     ~ImageConverter() {
@@ -107,6 +122,7 @@ public:
         mDetector.detect(InImage, markers, TheCameraParameters);
         clearLinuxConsole();
         for (auto const &marker : markers) {
+            marker.draw(InImage, Scalar(0, 0, 255), 2);
             auto markerId = marker.id;
             if (marker_to_class_associations_.find(markerId)==marker_to_class_associations_.end()){
                 std::cout << "Found unkown marker with id " + std::to_string(markerId) + "\n\n";
@@ -120,10 +136,10 @@ public:
 
             if (instanceIdSearchPtr==marker_to_instance_id_associations_.end()){
 
-                createInstance(markerId, associatedClass);
-                auto supposedId = class_to_current_id_associations.find(associatedClass)->second + 1;
+                //createInstance(markerId, associatedClass);
+                auto supposedId = class_to_current_id_associations_.find(associatedClass)->second + 1;
                 marker_to_instance_id_associations_[markerId]=supposedId;
-                class_to_current_id_associations[associatedClass]=supposedId;
+                class_to_current_id_associations_[associatedClass]=supposedId;
 
                 std::cout << "Found new instance of class '"+ associatedClass +"': '"+ std::to_string(markerId) + "'\n";
                 std::cout << "    Registering new instance with id '"+ std::to_string(supposedId) + "'\n\n";
@@ -132,7 +148,6 @@ public:
                 std::cout << "Found registered instance of class '" + associatedClass + "': '"+ std::to_string(markerId)+"'\n";
                 std::cout << "    Instance is registered with id '" + std::to_string(marker_to_instance_id_associations_.find(markerId)->second) +"'\n\n";
             }
-            marker.draw(InImage, Scalar(0, 0, 255), 2);
         }
         imshow("markers", InImage);
         waitKey(10);

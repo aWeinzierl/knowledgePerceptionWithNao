@@ -75,9 +75,14 @@ public:
 		}
 
 		Mat InImage=cv_ptr->image;
-        /*
-         * TODO
-         */
+
+        MarkerDetector mDetector;
+        vector<Marker> markers;
+        mDetector.detect(InImage, markers, TheCameraParameters);
+
+        for(auto const& marker : markers){
+            marker.draw(InImage, Scalar(0,0,255), 2);
+        }
 
 
 		imshow("markers",InImage);
@@ -89,6 +94,7 @@ int main(int argc, char** argv)
 {
 	ros::init(argc, argv, "tutorial_vision");
 	ImageConverter ic;
+
 	ros::spin();
 	return 0;
 }

@@ -14,19 +14,21 @@ using namespace cv;
 using namespace aruco;
 using namespace json_prolog;
 
-struct Coordinate{
-    public:
-    Coordinate(double x, double y, double z){}
+struct Coordinate
+{
+public:
+    Coordinate(double x, double y, double z) {}
 
     double GetX() const noexcept;
     double GetY() const noexcept;
     double GetZ() const noexcept;
 
-    private:
+private:
     double _x, _y, _z;
 };
 
-class ImageConverter {
+class ImageConverter
+{
     ros::NodeHandle nh_;
     image_transport::ImageTransport it_;
     image_transport::Subscriber image_sub_;
@@ -40,7 +42,8 @@ class ImageConverter {
 
 public:
     ImageConverter()
-            : it_(nh_) {
+        : it_(nh_)
+    {
         // Subscrive to input video feed and publish output video feed
         image_sub_ = it_.subscribe("/nao_robot/camera/top/camera/image_raw", 1, &ImageConverter::imageCb, this);
 
@@ -65,52 +68,98 @@ public:
         TheCameraParameters.setParams(cameraP, dist, Size(640, 480));
         TheCameraParameters.resize(Size(640, 480));
 
-
-        marker_to_class_associations_= {
-                {457, "Carrot"},
-                {885, "Donut"},
-                {785, "HotWing"},
-                {943, "HotWing"},
-                {251, "HotWing"},
-                {279, "Donut"},
+        marker_to_class_associations_ = {
+            {457, "Carrot"},
+            {885, "Donut"},
+            {785, "HotWing"},
+            {943, "HotWing"},
+            {251, "HotWing"},
+            {279, "Donut"},
         };
 
         class_to_current_id_associations_ = {
-                {"Carrot",0},
-                {"Donut", 0 },
-                {"HotWing", 0},
+            {"Carrot", 0},
+            {"Donut", 0},
+            {"HotWing", 0},
         };
-
-        
     }
 
-    ~ImageConverter() {
+    ~ImageConverter()
+    {
     }
 
-    string IntToStr(int a) {
+    string IntToStr(int a)
+    {
         stringstream ss;
         ss << a;
         return ss.str();
     }
 
-    void clearLinuxConsole(){
+    void drawMarkers(Mat& image, const std::vector<Marker> &markers)
+    {
+        for (auto const &marker : markers)
+        {
+            marker.draw(image, Scalar(0, 0, 255), 2);
+        }
+    }
+
+    void clearLinuxConsole()
+    {
         std::cout << "\033[2J\033[1;1H";
     }
 
-    void createInstance(unsigned int markerId, const std::string& associatedClass) const {
+    void recognizeObjects(const std::vector<Marker> &markers)
+    {
+        for (auto const &marker : markers)
+        {
+            auto markerId = marker.id;
+            if (marker_to_class_associations_.find(markerId) == marker_to_class_associations_.end())
+            {
+                std::cout << "Found unkown marker with id " + std::to_string(markerId) + "\n\n";
+                continue;
+            }
+
+            auto instanceIdSearchPtr = marker_to_instance_id_associations_.find(markerId);
+            auto associatedClass = marker_to_class_associations_.find(markerId)->second;
+
+            if (instanceIdSearchPtr == marker_to_instance_id_associations_.end())
+            {
+
+                //createInstance(markerId, associatedClass);
+                auto supposedId = class_to_current_id_associations_.find(associatedClass)->second + 1;
+                marker_to_instance_id_associations_[markerId] = supposedId;
+                class_to_current_id_associations_[associatedClass] = supposedId;
+
+                std::cout << "Found new instance of class '" + associatedClass + "': '" + std::to_string(markerId) + "'\n";
+                std::cout << "    Registering new instance with id '" + std::to_string(supposedId) + "'\n\n";
+            }
+            else
+            {
+                auto instanceId = instanceIdSearchPtr->second;
+                std::cout << "Found registered instance of class '" + associatedClass + "': '" + std::to_string(markerId) + "'\n";
+                std::cout << "    Instance is registered with id '" + std::to_string(marker_to_instance_id_associations_.find(markerId)->second) + "'\n\n";
+            }
+        }
+    }
+
+    void createInstance(unsigned int markerId, const std::string &associatedClass) const
+    {
 
         Prolog pl;
         PrologQueryProxy bdgs = pl.query(
-                "rdf_costom_instance_from_class('http://knowrob.org/kb/knowrob.owl#" + associatedClass + "',_," +
-                std::to_string(markerId) + ",ObjInst");
+            "rdf_costom_instance_from_class('http://knowrob.org/kb/knowrob.owl#" + associatedClass + "',_," +
+            std::to_string(markerId) + ",ObjInst");
     }
 
-    void imageCb(const sensor_msgs::ImageConstPtr &msg) {
+    void imageCb(const sensor_msgs::ImageConstPtr &msg)
+    {
         cv_bridge::CvImagePtr cv_ptr;
-        try {
+        try
+        {
             cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
         }
-        catch (cv_bridge::Exception &e) {
+        catch (cv_bridge::Exception &e)
+        {
             ROS_ERROR("cv_bridge exception: %s", e.what());
             return;
         }
@@ -121,40 +170,16 @@ public:
         vector<Marker> markers;
         mDetector.detect(InImage, markers, TheCameraParameters);
         clearLinuxConsole();
-        for (auto const &marker : markers) {
-            marker.draw(InImage, Scalar(0, 0, 255), 2);
-            auto markerId = marker.id;
-            if (marker_to_class_associations_.find(markerId)==marker_to_class_associations_.end()){
-                std::cout << "Found unkown marker with id " + std::to_string(markerId) + "\n\n";
-                continue;
-            }
+        drawMarkers(InImage, markers);
+        recognizeObjects(markers);
 
-
-            auto instanceIdSearchPtr = marker_to_instance_id_associations_.find(markerId);
-            auto associatedClass = marker_to_class_associations_.find(markerId)->second;
-
-
-            if (instanceIdSearchPtr==marker_to_instance_id_associations_.end()){
-
-                //createInstance(markerId, associatedClass);
-                auto supposedId = class_to_current_id_associations_.find(associatedClass)->second + 1;
-                marker_to_instance_id_associations_[markerId]=supposedId;
-                class_to_current_id_associations_[associatedClass]=supposedId;
-
-                std::cout << "Found new instance of class '"+ associatedClass +"': '"+ std::to_string(markerId) + "'\n";
-                std::cout << "    Registering new instance with id '"+ std::to_string(supposedId) + "'\n\n";
-            } else {
-                auto instanceId = instanceIdSearchPtr->second;
-                std::cout << "Found registered instance of class '" + associatedClass + "': '"+ std::to_string(markerId)+"'\n";
-                std::cout << "    Instance is registered with id '" + std::to_string(marker_to_instance_id_associations_.find(markerId)->second) +"'\n\n";
-            }
-        }
         imshow("markers", InImage);
         waitKey(10);
     }
 };
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
     ros::init(argc, argv, "tutorial_vision");
     ImageConverter ic;
 

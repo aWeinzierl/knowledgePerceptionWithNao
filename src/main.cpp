@@ -14,25 +14,7 @@ using namespace cv;
 using namespace aruco;
 using namespace json_prolog;
 
-struct Coordinate
-{
-public:
-    Coordinate(double x, double y, double z) : _x(x), _y(y), _z(z) {}
-    Coordinate(openCvMatrix cv::Mat) {
-
-    }
-
-
-    double GetX() const noexcept;
-    double GetY() const noexcept;
-    double GetZ() const noexcept;
-
-private:
-    double _x, _y, _z;
-};
-
-class ImageConverter
-{
+class ImageConverter {
     ros::NodeHandle nh_;
     image_transport::ImageTransport it_;
     image_transport::Subscriber image_sub_;
@@ -41,13 +23,12 @@ class ImageConverter
     std::unordered_map<unsigned int, std::string> marker_to_class_associations_;
     std::unordered_map<unsigned int, unsigned int> marker_to_instance_id_associations_;
     std::unordered_map<std::string, unsigned int> class_to_current_id_associations_;
-    std::unordered_map<unsigned int, Coordinate> marker_to_last_significant_position_;
+    std::unordered_map<unsigned int, cv::Mat> marker_to_last_significant_position_;
     Prolog pl;
 
 public:
     ImageConverter()
-        : it_(nh_)
-    {
+            : it_(nh_) {
         // Subscrive to input video feed and publish output video feed
         image_sub_ = it_.subscribe("/nao_robot/camera/top/camera/image_raw", 1, &ImageConverter::imageCb, this);
 
@@ -73,38 +54,22 @@ public:
         TheCameraParameters.resize(Size(640, 480));
 
         marker_to_class_associations_ = {
-            {457, "Carrot"},
-            {885, "Donut"},
-            {785, "HotWing"},
-            {943, "HotWing"},
-            {251, "HotWing"},
-            {279, "Donut"},
+                {457, "Carrot"},
+                {885, "Donut"},
+                {785, "HotWing"},
+                {943, "HotWing"},
+                {251, "HotWing"},
+                {279, "Donut"},
         };
 
         class_to_current_id_associations_ = {
-            {"Carrot", 0},
-            {"Donut", 0},
-            {"HotWing", 0},
+                {"Carrot",  0},
+                {"Donut",   0},
+                {"HotWing", 0},
         };
     }
 
-    ~ImageConverter()
-    {
-    }
-
-    string IntToStr(int a)
-    {
-        stringstream ss;
-        ss << a;
-        return ss.str();
-    }
-
-    void drawMarkers(Mat& image, const std::vector<Marker> &markers)
-    {
-        for (auto const &marker : markers)
-        {
-            marker.draw(image, Scalar(0, 0, 255), 2);
-        }
+    ~ImageConverter() {
     }
 
     void clearLinuxConsole()
@@ -112,70 +77,105 @@ public:
         std::cout << "\033[2J\033[1;1H";
     }
 
-    void recognizeObjects(const std::vector<Marker> &markers)
-    {
-        for (auto const &marker : markers)
-        {
+    void drawMarkers(Mat &image, const std::vector<Marker> &markers) {
+        for (auto const &marker : markers) {
+            marker.draw(image, Scalar(0, 0, 255), 2);
+        }
+    }
+
+    void recognizeObjects(const std::vector<Marker> &markers) {
+        for (auto const &marker : markers) {
             auto markerId = marker.id;
-            if (marker_to_class_associations_.find(markerId) == marker_to_class_associations_.end())
-            {
-                std::cout << "Found unkown marker with id " + std::to_string(markerId) + "\n";
+            if (marker_to_class_associations_.find(markerId) == marker_to_class_associations_.end()) {
+                // std::cout << "Found unkown marker with id " + std::to_string(markerId) + "\n";
                 continue;
             }
 
             auto instanceIdSearchPtr = marker_to_instance_id_associations_.find(markerId);
             auto associatedClass = marker_to_class_associations_.find(markerId)->second;
 
-            if (instanceIdSearchPtr == marker_to_instance_id_associations_.end())
-            {
+            if (instanceIdSearchPtr == marker_to_instance_id_associations_.end()) {
 
                 //createInstance(markerId, associatedClass);
                 auto supposedId = class_to_current_id_associations_.find(associatedClass)->second + 1;
                 marker_to_instance_id_associations_[markerId] = supposedId;
                 class_to_current_id_associations_[associatedClass] = supposedId;
 
-                std::cout << "Found new instance of class '" + associatedClass + "': '" + std::to_string(markerId) + "'\n";
-                std::cout << "    Registering new instance with id '" + std::to_string(supposedId) + "'\n\n";
-            }
-            else
-            {
+                std::cout << "Found new instance of class '" + associatedClass + "': '" + std::to_string(markerId) +
+                             "'\n";
+                std::cout << "    Registering new instance with id '" + std::to_string(supposedId) + "'\n";
+            } else {
                 auto instanceId = instanceIdSearchPtr->second;
-                std::cout << "Found registered instance of class '" + associatedClass + "': '" + std::to_string(markerId) + "'\n";
-                std::cout << "    Instance is registered with id '" + std::to_string(marker_to_instance_id_associations_.find(markerId)->second) + "'\n";
+                //std::cout << "Found registered instance of class '" + associatedClass + "': '" +
+                //             std::to_string(markerId) + "'\n";
+                //std::cout << "    Instance is registered with id '" +
+                //             std::to_string(marker_to_instance_id_associations_.find(markerId)->second) + "'\n";
             }
         }
     }
 
-    void createInstance(unsigned int markerId, const std::string &associatedClass) const
-    {
+    void createInstance(unsigned int markerId, const std::string &associatedClass) const {
 
         Prolog pl;
         PrologQueryProxy bdgs = pl.query(
-            "rdf_costom_instance_from_class('http://knowrob.org/kb/knowrob.owl#" + associatedClass + "',_," +
-            std::to_string(markerId) + ",ObjInst");
+                "rdf_costom_instance_from_class('http://knowrob.org/kb/knowrob.owl#" + associatedClass + "',_," +
+                std::to_string(markerId) + ",ObjInst");
     }
 
-    void detectMotions(const std::vector<Marker> &markers){
-        for (const auto & marker: markers){
+    void detectMotions(std::vector<Marker> &markers) {
+        for (auto &marker: markers) {
             auto markerId = marker.id;
-            auto markerPosition = marker.getCenter();
-            std::cout << markerPosition.channels();
-            if (marker_to_last_significant_position_.find(markerId)==marker_to_last_significant_position_.end()){
-                marker_to_last_significant_position_[marker.id]=markerPosition;
-                std::cout << "   Tracking new instance beginning at position (" << markerPosition.x <<"; "<< markerPosition.y << "\n";
+            if (marker_to_class_associations_.find(markerId) == marker_to_class_associations_.end()) {
+                // std::cout << "Found unkown marker with id " + std::to_string(markerId) + "\n";
+                continue;
+            }
+
+            marker.calculateExtrinsics(0.04,TheCameraParameters,true);
+            auto markerPosition = marker.Tvec;
+
+            auto lastPositionPtr = marker_to_last_significant_position_.find(markerId);
+
+            if (lastPositionPtr == marker_to_last_significant_position_.end()) {
+                marker_to_last_significant_position_[marker.id] = markerPosition.clone();
+                std::cout << "    Tracking new instance";
+                continue;
+            }
+
+            auto threshold = 0.075f;
+            Mat distanceMoved = (markerPosition - lastPositionPtr->second);
+            if (distanceMoved.at<float>(0) >= threshold){
+                lastPositionPtr->second.at<float>(0)=markerPosition.at<float>(0);
+                std::cout << "    Marker with id '" << markerId << "' moved right" << std::endl;
+            }
+            if (distanceMoved.at<float>(0) <= -threshold){
+                lastPositionPtr->second.at<float>(0)=markerPosition.at<float>(0);
+                std::cout << "    Marker with id '" << markerId << "' moved left" << std::endl;
+            }
+            if (distanceMoved.at<float>(1) >= threshold){
+                lastPositionPtr->second.at<float>(1)=markerPosition.at<float>(1);
+                std::cout << "    Marker with id '" << markerId << "' moved down" << std::endl;
+            }
+            if (distanceMoved.at<float>(1) <= -threshold){
+                lastPositionPtr->second.at<float>(1)=markerPosition.at<float>(1);
+                std::cout << "    Marker with id '" << markerId << "' moved up" << std::endl;
+            }
+            if (distanceMoved.at<float>(2) >= threshold){
+                lastPositionPtr->second.at<float>(2)=markerPosition.at<float>(2);
+                std::cout << "    Marker with id '" << markerId << "' moved away" << std::endl;
+            }
+            if (distanceMoved.at<float>(2) <= -threshold){
+                lastPositionPtr->second.at<float>(2)=markerPosition.at<float>(2);
+                std::cout << "    Marker with id '" << markerId << "' moved closer" << std::endl;
             }
         }
     }
 
-    void imageCb(const sensor_msgs::ImageConstPtr &msg)
-    {
+    void imageCb(const sensor_msgs::ImageConstPtr &msg) {
         cv_bridge::CvImagePtr cv_ptr;
-        try
-        {
+        try {
             cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
         }
-        catch (cv_bridge::Exception &e)
-        {
+        catch (cv_bridge::Exception &e) {
             ROS_ERROR("cv_bridge exception: %s", e.what());
             return;
         }
@@ -185,9 +185,10 @@ public:
         MarkerDetector mDetector;
         vector<Marker> markers;
         mDetector.detect(InImage, markers, TheCameraParameters);
-        clearLinuxConsole();
+        //clearLinuxConsole();
         drawMarkers(InImage, markers);
         recognizeObjects(markers);
+
         detectMotions(markers);
 
         imshow("markers", InImage);
@@ -195,8 +196,7 @@ public:
     }
 };
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     ros::init(argc, argv, "tutorial_vision");
     ImageConverter ic;
 

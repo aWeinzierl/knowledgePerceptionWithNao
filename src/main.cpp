@@ -115,7 +115,7 @@ public:
             auto markerId = marker.id;
             if (marker_to_class_associations_.find(markerId) == marker_to_class_associations_.end())
             {
-                std::cout << "Found unkown marker with id " + std::to_string(markerId) + "\n\n";
+                std::cout << "Found unkown marker with id " + std::to_string(markerId) + "\n";
                 continue;
             }
 
@@ -137,7 +137,7 @@ public:
             {
                 auto instanceId = instanceIdSearchPtr->second;
                 std::cout << "Found registered instance of class '" + associatedClass + "': '" + std::to_string(markerId) + "'\n";
-                std::cout << "    Instance is registered with id '" + std::to_string(marker_to_instance_id_associations_.find(markerId)->second) + "'\n\n";
+                std::cout << "    Instance is registered with id '" + std::to_string(marker_to_instance_id_associations_.find(markerId)->second) + "'\n";
             }
         }
     }

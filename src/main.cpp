@@ -17,7 +17,11 @@ using namespace json_prolog;
 struct Coordinate
 {
 public:
-    Coordinate(double x, double y, double z) {}
+    Coordinate(double x, double y, double z) : _x(x), _y(y), _z(z) {}
+    Coordinate(openCvMatrix cv::Mat) {
+
+    }
+
 
     double GetX() const noexcept;
     double GetY() const noexcept;
@@ -153,8 +157,12 @@ public:
 
     void detectMotions(const std::vector<Marker> &markers){
         for (const auto & marker: markers){
-            if (marker_to_last_significant_position_.find(marker.id)==marker_to_last_significant_position_.end()){
-                std::cout << "   "
+            auto markerId = marker.id;
+            auto markerPosition = marker.getCenter();
+            std::cout << markerPosition.channels();
+            if (marker_to_last_significant_position_.find(markerId)==marker_to_last_significant_position_.end()){
+                marker_to_last_significant_position_[marker.id]=markerPosition;
+                std::cout << "   Tracking new instance beginning at position (" << markerPosition.x <<"; "<< markerPosition.y << "\n";
             }
         }
     }

@@ -9,10 +9,11 @@
 #include <json_prolog/prolog.h>
 #include <unordered_map>
 
+#include "PrologClient.h"
+
 using namespace std;
 using namespace cv;
 using namespace aruco;
-using namespace json_prolog;
 
 class ImageConverter {
     ros::NodeHandle nh_;
@@ -22,13 +23,12 @@ class ImageConverter {
     CameraParameters TheCameraParameters;
     std::unordered_map<unsigned int, std::string> marker_to_class_associations_;
     std::unordered_map<unsigned int, unsigned int> marker_to_instance_id_associations_;
-    std::unordered_map<std::string, unsigned int> class_to_current_id_associations_;
     std::unordered_map<unsigned int, cv::Mat> marker_to_last_significant_position_;
-    Prolog pl;
+    PrologClient& _prologClient;
 
 public:
-    ImageConverter()
-            : it_(nh_) {
+    ImageConverter(PrologClient& prologClient)
+            : it_(nh_), _prologClient(prologClient) {
         // Subscrive to input video feed and publish output video feed
         image_sub_ = it_.subscribe("/nao_robot/camera/top/camera/image_raw", 1, &ImageConverter::imageCb, this);
 
@@ -50,6 +50,7 @@ public:
         cameraP.at<float>(2, 1) = 0.000000;
         cameraP.at<float>(2, 2) = 1.000000;
 
+
         TheCameraParameters.setParams(cameraP, dist, Size(640, 480));
         TheCameraParameters.resize(Size(640, 480));
 
@@ -62,11 +63,6 @@ public:
                 {279, "Donut"},
         };
 
-        class_to_current_id_associations_ = {
-                {"Carrot",  0},
-                {"Donut",   0},
-                {"HotWing", 0},
-        };
     }
 
     ~ImageConverter() {
@@ -96,14 +92,13 @@ public:
 
             if (instanceIdSearchPtr == marker_to_instance_id_associations_.end()) {
 
-                //createInstance(markerId, associatedClass);
-                auto supposedId = class_to_current_id_associations_.find(associatedClass)->second + 1;
-                marker_to_instance_id_associations_[markerId] = supposedId;
-                class_to_current_id_associations_[associatedClass] = supposedId;
+                auto id = _prologClient.CreateTypeInstance(associatedClass);
+                marker_to_instance_id_associations_[markerId] = id;
+
 
                 std::cout << "Found new instance of class '" + associatedClass + "': '" + std::to_string(markerId) +
                              "'\n";
-                std::cout << "    Registering new instance with id '" + std::to_string(supposedId) + "'\n";
+                std::cout << "    Registering new instance with id '" + std::to_string(id) + "'\n";
             } else {
                 auto instanceId = instanceIdSearchPtr->second;
                 //std::cout << "Found registered instance of class '" + associatedClass + "': '" +
@@ -112,14 +107,6 @@ public:
                 //             std::to_string(marker_to_instance_id_associations_.find(markerId)->second) + "'\n";
             }
         }
-    }
-
-    void createInstance(unsigned int markerId, const std::string &associatedClass) const {
-
-        Prolog pl;
-        PrologQueryProxy bdgs = pl.query(
-                "rdf_costom_instance_from_class('http://knowrob.org/kb/knowrob.owl#" + associatedClass + "',_," +
-                std::to_string(markerId) + ",ObjInst");
     }
 
     void detectMotions(std::vector<Marker> &markers) {
@@ -198,7 +185,8 @@ public:
 
 int main(int argc, char **argv) {
     ros::init(argc, argv, "tutorial_vision");
-    ImageConverter ic;
+    PrologClient pc;
+    ImageConverter ic(pc);
 
     ros::spin();
     return 0;

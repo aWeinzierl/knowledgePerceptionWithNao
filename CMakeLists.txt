@@ -25,7 +25,7 @@ include_directories(
 
 
 ## Declare a cpp executable
-add_executable(nao_vision_ex1 src/main.cpp)
+add_executable(nao_vision_ex1 src/main.cpp src/PrologClient.cpp src/PrologClient.h)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(nao_vision_ex1 ${catkin_LIBRARIES})

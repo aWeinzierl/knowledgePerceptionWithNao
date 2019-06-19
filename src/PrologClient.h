@@ -20,16 +20,18 @@ class PrologClient {
     std::unordered_map<std::string, unsigned int> class_to_current_id_associations_;
     json_prolog::Prolog _pl;
 
+
+
+public:
+
     struct Instance{
         std::string _class;
         uint _id;
-
+    public:
         Instance(const std::string& classType, uint id);
         const std::string& Get_class() const noexcept;
         uint Get_id() const noexcept;
     };
-
-public:
 
     PrologClient();
 

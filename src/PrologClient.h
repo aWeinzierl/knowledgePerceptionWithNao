@@ -6,6 +6,16 @@
 
 #include <json_prolog/prolog.h>
 
+enum class DIRECTION{
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT,
+    AWAY,
+    CLOSER,
+};
+
+
 class PrologClient {
     std::unordered_map<std::string, unsigned int> class_to_current_id_associations_;
     json_prolog::Prolog _pl;

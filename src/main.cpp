@@ -25,6 +25,7 @@ class ImageConverter {
     std::unordered_map<unsigned int, unsigned int> marker_to_instance_id_associations_;
     std::unordered_map<unsigned int, cv::Mat> marker_to_last_significant_position_;
     PrologClient& _prologClient;
+    uint _globalTime;
 
 public:
     ImageConverter(PrologClient& prologClient)
@@ -62,6 +63,8 @@ public:
                 {251, "HotWing"},
                 {279, "Donut"},
         };
+
+        _globalTime=0;
 
     }
 
@@ -124,7 +127,7 @@ public:
 
             if (lastPositionPtr == marker_to_last_significant_position_.end()) {
                 marker_to_last_significant_position_[marker.id] = markerPosition.clone();
-                std::cout << "    Tracking new instance";
+                std::cout << "    Tracking new instance" << "\n";
                 continue;
             }
 
@@ -133,31 +136,48 @@ public:
             if (distanceMoved.at<float>(0) >= threshold){
                 lastPositionPtr->second.at<float>(0)=markerPosition.at<float>(0);
                 std::cout << "    Marker with id '" << markerId << "' moved right" << std::endl;
+                registerMotion(markerId, DIRECTION::RIGHT);
             }
             if (distanceMoved.at<float>(0) <= -threshold){
                 lastPositionPtr->second.at<float>(0)=markerPosition.at<float>(0);
                 std::cout << "    Marker with id '" << markerId << "' moved left" << std::endl;
+                registerMotion(markerId, DIRECTION::LEFT);
             }
             if (distanceMoved.at<float>(1) >= threshold){
                 lastPositionPtr->second.at<float>(1)=markerPosition.at<float>(1);
                 std::cout << "    Marker with id '" << markerId << "' moved down" << std::endl;
+                registerMotion(markerId, DIRECTION::DOWN);
             }
             if (distanceMoved.at<float>(1) <= -threshold){
                 lastPositionPtr->second.at<float>(1)=markerPosition.at<float>(1);
                 std::cout << "    Marker with id '" << markerId << "' moved up" << std::endl;
+                registerMotion(markerId, DIRECTION::UP);
             }
             if (distanceMoved.at<float>(2) >= threshold){
                 lastPositionPtr->second.at<float>(2)=markerPosition.at<float>(2);
                 std::cout << "    Marker with id '" << markerId << "' moved away" << std::endl;
+                registerMotion(markerId, DIRECTION::AWAY);
             }
             if (distanceMoved.at<float>(2) <= -threshold){
                 lastPositionPtr->second.at<float>(2)=markerPosition.at<float>(2);
                 std::cout << "    Marker with id '" << markerId << "' moved closer" << std::endl;
+                registerMotion(markerId, DIRECTION::CLOSER);
             }
         }
     }
 
+    void registerMotion(uint markerId, DIRECTION direction){
+        _prologClient.Create_time_point_if_not_exists(_globalTime);
+
+        auto classType = marker_to_class_associations_.find(markerId)->second;
+        auto id = marker_to_instance_id_associations_.find(markerId)->second;
+        PrologClient::Instance instance(classType, id);
+        _prologClient.Register_motion_for_object(instance, _globalTime, direction);
+    }
+
     void imageCb(const sensor_msgs::ImageConstPtr &msg) {
+        _globalTime++;
+
         cv_bridge::CvImagePtr cv_ptr;
         try {
             cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);

@@ -36,7 +36,7 @@ void PrologClient::Register_motion_for_object(const Instance &instance, uint tim
     logQueryResult(bdgs);
 }
 
-void PrologClient::CreateTimePoint(uint timeInstant) {
+void PrologClient::Create_time_point_if_not_exists(uint timeInstant) {
 
     if (Time_point_already_exists(timeInstant)) {
         return;

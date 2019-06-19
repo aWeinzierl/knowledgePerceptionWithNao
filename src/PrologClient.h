@@ -41,7 +41,7 @@ public:
 
     bool Time_point_already_exists(uint timeInstant);
 
-    void CreateTimePoint(uint timeInstant);
+    void Create_time_point_if_not_exists(uint timeInstant);
 
     void logQueryResult(json_prolog::PrologQueryProxy &bdgs) const;
 };

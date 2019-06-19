@@ -30,10 +30,24 @@ void PrologClient::logQueryResult(json_prolog::PrologQueryProxy &bdgs) const {
 
 void PrologClient::Register_motion_for_object(const Instance &instance, uint timeInstant,
                                               DIRECTION direction) {
+    std::string movement;
+    if (direction==DIRECTION::LEFT){
+        movement = "MoveLeft";
+    } else if (direction == DIRECTION::RIGHT){
+        movement = "MoveRight";
+    } else if(direction == DIRECTION::CLOSER){
+        movement="MoveToward";
+    } else if (direction == DIRECTION::AWAY){
+        movement= "MoveForward";
+    }else if (direction == DIRECTION::UP){
+        movement = "MoveUp";
+    }else if (direction == DIRECTION::DOWN) {
+        movement = "MoveDown";
+    }
+
     auto bdgs = _pl.query(
-            "rdf_assert('http://knowrob.org/kb/Nao_computables.owl#Carrot" + instance.Get_class() +"_"+ std::to_string(instance.Get_id()) +"',"+
-            "knowrob:startTime, 'http://knowrob.org/kb/knowrob.owl#TimePoint_"+ std::to_string(timeInstant) +"')");
-    logQueryResult(bdgs);
+            "rdf_assert('http://knowrob.org/kb/Nao_computables.owl#" + instance.Get_class() +"_"+ std::to_string(instance.Get_id()) +
+    "','http://knowrob.org/kb/Nao_computables.owl#"+ movement +"','http://knowrob.org/kb/knowrob.owl#TimePoint_"+std::to_string(timeInstant)+ "')");
 }
 
 void PrologClient::Create_time_point_if_not_exists(uint timeInstant) {

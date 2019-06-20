@@ -70,6 +70,29 @@ bool PrologClient::Time_point_already_exists(uint timeInstant) {
     return bdgs.begin()==bdgs.begin();
 }
 
+void PrologClient::PrintMovementsOfInstance(PrologClient::Instance instance, DIRECTION direction) {
+    std::string movement;
+    if (direction==DIRECTION::LEFT){
+        movement = "MoveLeft";
+    } else if (direction == DIRECTION::RIGHT){
+        movement = "MoveRight";
+    } else if(direction == DIRECTION::CLOSER){
+        movement="MoveToward";
+    } else if (direction == DIRECTION::AWAY){
+        movement= "MoveForward";
+    }else if (direction == DIRECTION::UP){
+        movement = "MoveUp";
+    }else if (direction == DIRECTION::DOWN) {
+        movement = "MoveDown";
+    }
+
+    auto bdgs = _pl.query(
+            "rdf_has('http://knowrob.org/kb/Nao_computables.owl#"
+            + instance.Get_class() + "_" + std::to_string(instance.Get_id()) + "','http://knowrob.org/kb/Nao_computables.owl#"+ movement + "',ObjInst)");
+
+    std::cout << "History for this direction: ";
+    logQueryResult(bdgs);
+}
 
 PrologClient::Instance::Instance(const std::string &classType, uint id) : _class(classType),_id(id) {
 }

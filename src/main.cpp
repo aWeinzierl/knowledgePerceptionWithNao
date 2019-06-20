@@ -173,6 +173,8 @@ public:
         auto id = marker_to_instance_id_associations_.find(markerId)->second;
         PrologClient::Instance instance(classType, id);
         _prologClient.Register_motion_for_object(instance, _globalTime, direction);
+        _prologClient.PrintMovementsOfInstance(instance, direction);
+
     }
 
     void imageCb(const sensor_msgs::ImageConstPtr &msg) {
